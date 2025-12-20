@@ -1,0 +1,46 @@
+# Configuration du Config Server
+server:
+  port: 8888  # Port sur lequel le Config Server écoute
+
+spring:
+  application:
+    name: config-server  # Nom de l'application
+
+  cloud:
+    config:
+      server:
+        git:
+          # URI du repository Git contenant les configurations
+          # En production, utilisez un repo Git distant (GitHub, GitLab)
+          uri: file://${user.home}/config-repo
+
+          # Branche à utiliser
+          default-label: main
+
+          # Clone au démarrage pour vérifier la connexion
+          clone-on-start: true
+
+          # Rafraîchissement automatique
+          refresh-rate: 10
+
+        # Configuration de la sécurité (optionnel)
+        # native:
+        #   search-locations: classpath:/configs
+
+# Configuration du monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"  # Expose tous les endpoints Actuator
+  endpoint:
+    health:
+      show-details: always  # Affiche les détails du health check
+
+# Logs
+logging:
+  level:
+    org.springframework.cloud: DEBUG
+    com.event.platform: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"

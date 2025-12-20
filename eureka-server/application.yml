@@ -1,0 +1,51 @@
+# Configuration Eureka Server
+server:
+  port: 8761  # Port par défaut d'Eureka
+
+spring:
+  application:
+    name: eureka-server
+
+  # Configuration pour se connecter au Config Server
+  config:
+    import: optional:configserver:http://localhost:8888
+
+eureka:
+  instance:
+    hostname: localhost  # Hostname du serveur Eureka
+
+  client:
+    # Ne pas s'enregistrer soi-même (mode standalone)
+    register-with-eureka: false
+
+    # Ne pas récupérer le registre (on EST le registre)
+    fetch-registry: false
+
+    # URL du serveur Eureka (pour les clients)
+    service-url:
+      defaultZone: http://${eureka.instance.hostname}:${server.port}/eureka/
+
+  server:
+    # Désactiver la protection en mode développement
+    # En production, gardez-la activée
+    enable-self-preservation: false
+
+    # Intervalle d'éviction des services inactifs (ms)
+    eviction-interval-timer-in-ms: 5000
+
+# Monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+
+# Logs
+logging:
+  level:
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO
+    com.event.platform: DEBUG

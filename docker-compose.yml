@@ -1,0 +1,225 @@
+# Docker Compose pour la plateforme de gestion d'événements
+# Ce fichier orchestre tous les microservices et leurs dépendances
+
+version: '3.8'
+
+# Définition des services
+services:
+
+  # ========== BASES DE DONNÉES ==========
+
+  # MySQL pour Event Service
+  mysql-event:
+    image: mysql:8.0
+    container_name: mysql-event
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: event_db
+      MYSQL_USER: event_user
+      MYSQL_PASSWORD: event_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-event-data:/var/lib/mysql
+    networks:
+      - event-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MySQL pour Booking Service
+  mysql-booking:
+    image: mysql:8.0
+    container_name: mysql-booking
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: booking_db
+      MYSQL_USER: booking_user
+      MYSQL_PASSWORD: booking_pass
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-booking-data:/var/lib/mysql
+    networks:
+      - event-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL pour User Service
+  postgres-user:
+    image: postgres:15
+    container_name: postgres-user
+    environment:
+      POSTGRES_DB: user_db
+      POSTGRES_USER: user_user
+      POSTGRES_PASSWORD: user_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-user-data:/var/lib/postgresql/data
+    networks:
+      - event-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ========== INFRASTRUCTURE SERVICES ==========
+
+  # Config Server - Doit démarrer en premier
+  config-server:
+    build:
+      context: ./backend/config-server
+      dockerfile: Dockerfile
+    container_name: config-server
+    ports:
+      - "8888:8888"
+    environment:
+      SPRING_PROFILES_ACTIVE: native
+      # En production, utilisez un repo Git distant
+      SPRING_CLOUD_CONFIG_SERVER_GIT_URI: file:///config-repo
+    volumes:
+      - ./config-repo:/config-repo
+    networks:
+      - event-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Eureka Server - Service Registry
+  eureka-server:
+    build:
+      context: ./backend/eureka-server
+      dockerfile: Dockerfile
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+    depends_on:
+      config-server:
+        condition: service_healthy
+    networks:
+      - event-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./backend/api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      config-server:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - event-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ========== MICROSERVICES MÉTIER ==========
+
+  # Event Service
+  event-service:
+    build:
+      context: ./backend/event-service
+      dockerfile: Dockerfile
+    container_name: event-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-event:3306/event_db
+      SPRING_DATASOURCE_USERNAME: event_user
+      SPRING_DATASOURCE_PASSWORD: event_pass
+    depends_on:
+      mysql-event:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - event-network
+    deploy:
+      replicas: 2  # 2 instances pour load balancing
+
+  # Booking Service
+  booking-service:
+    build:
+      context: ./backend/booking-service
+      dockerfile: Dockerfile
+    container_name: booking-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-booking:3306/booking_db
+      SPRING_DATASOURCE_USERNAME: booking_user
+      SPRING_DATASOURCE_PASSWORD: booking_pass
+    depends_on:
+      mysql-booking:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+      event-service:
+        condition: service_started
+    networks:
+      - event-network
+
+  # User Service
+  user-service:
+    build:
+      context: ./backend/user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-user:5432/user_db
+      SPRING_DATASOURCE_USERNAME: user_user
+      SPRING_DATASOURCE_PASSWORD: user_pass
+    depends_on:
+      postgres-user:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+    networks:
+      - event-network
+
+# Définition des volumes persistants
+volumes:
+  mysql-event-data:
+    driver: local
+  mysql-booking-data:
+    driver: local
+  postgres-user-data:
+    driver: local
+
+# Réseau pour la communication inter-services
+networks:
+  event-network:
+    driver: bridge
