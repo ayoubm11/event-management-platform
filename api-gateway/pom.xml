@@ -14,7 +14,7 @@
     <groupId>com.event.platform</groupId>
     <artifactId>api-gateway</artifactId>
     <version>1.0.0</version>
-    <n>API Gateway</n>
+    <name>API Gateway</name>
     <description>Point d'entrée unique pour tous les microservices</description>
 
     <properties>
@@ -23,14 +23,13 @@
     </properties>
 
     <dependencies>
-        <!-- Spring Cloud Gateway - Routage des requêtes -->
-        <!-- Gateway réactif basé sur WebFlux -->
+        <!-- Spring Cloud Gateway -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-gateway</artifactId>
         </dependency>
 
-        <!-- Eureka Client - Pour découvrir les services -->
+        <!-- Eureka Client -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
@@ -43,7 +42,6 @@
         </dependency>
 
         <!-- Circuit Breaker avec Resilience4j -->
-        <!-- Gestion des erreurs et timeouts -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-circuitbreaker-reactor-resilience4j</artifactId>
@@ -61,22 +59,11 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
-        <!-- CORS et Security (optionnel) -->
+        <!-- Lombok (optionnel) -->
         <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-security</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-web</artifactId>
-            <version>7.0.1</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-web</artifactId>
-            <version>7.0.1</version>
-            <scope>compile</scope>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
         </dependency>
     </dependencies>
 
@@ -97,6 +84,14 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
             </plugin>
         </plugins>
     </build>

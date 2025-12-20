@@ -1,9 +1,7 @@
-# Docker Compose pour la plateforme de gestion d'événements
-# Ce fichier orchestre tous les microservices et leurs dépendances
+# Docker Compose pour TKEV
+# Projet de Gestion d'Événements et Billetterie
+# Structure: Services à la racine (pas de dossier backend/)
 
-version: '3.8'
-
-# Définition des services
 services:
 
   # ========== BASES DE DONNÉES ==========
@@ -12,32 +10,42 @@ services:
   mysql-event:
     image: mysql:8.0
     container_name: mysql-event
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: event_db
       MYSQL_USER: event_user
       MYSQL_PASSWORD: event_pass
+      # Configuration MySQL pour performance
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
     ports:
       - "3306:3306"
     volumes:
       - mysql-event-data:/var/lib/mysql
+      # Optionnel: Scripts d'initialisation
+      # - ./init-scripts/event-db:/docker-entrypoint-initdb.d
     networks:
       - event-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   # MySQL pour Booking Service
   mysql-booking:
     image: mysql:8.0
     container_name: mysql-booking
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: booking_db
       MYSQL_USER: booking_user
       MYSQL_PASSWORD: booking_pass
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
     ports:
       - "3307:3306"
     volumes:
@@ -45,19 +53,23 @@ services:
     networks:
       - event-network
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
-  # PostgreSQL pour User Service
+  # PostgreSQL pour User Service (futur)
   postgres-user:
-    image: postgres:15
+    image: postgres:15-alpine
     container_name: postgres-user
+    restart: unless-stopped
     environment:
       POSTGRES_DB: user_db
       POSTGRES_USER: user_user
       POSTGRES_PASSWORD: user_pass
+      # Configuration PostgreSQL
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
     ports:
       - "5432:5432"
     volumes:
@@ -65,45 +77,50 @@ services:
     networks:
       - event-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user_user"]
+      test: ["CMD-SHELL", "pg_isready -U user_user -d user_db"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
   # ========== INFRASTRUCTURE SERVICES ==========
 
-  # Config Server - Doit démarrer en premier
+  # Config Server - Configuration centralisée
   config-server:
     build:
-      context: ./backend/config-server
+      context: ./config-server
       dockerfile: Dockerfile
     container_name: config-server
+    restart: unless-stopped
     ports:
       - "8888:8888"
     environment:
+      # Profile Spring actif
       SPRING_PROFILES_ACTIVE: native
-      # En production, utilisez un repo Git distant
-      SPRING_CLOUD_CONFIG_SERVER_GIT_URI: file:///config-repo
-    volumes:
-      - ./config-repo:/config-repo
+      # Configuration JVM
+      JAVA_OPTS: -Xms256m -Xmx512m
     networks:
       - event-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8888/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
       retries: 5
+      start_period: 60s
 
-  # Eureka Server - Service Registry
+  # Eureka Server - Service Discovery
   eureka-server:
     build:
-      context: ./backend/eureka-server
+      context: ./eureka-server
       dockerfile: Dockerfile
     container_name: eureka-server
+    restart: unless-stopped
     ports:
       - "8761:8761"
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      JAVA_OPTS: -Xms256m -Xmx512m
+      # URL du Config Server
       SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
     depends_on:
       config-server:
@@ -111,23 +128,28 @@ services:
     networks:
       - event-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
-      interval: 15s
-      timeout: 5s
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8761/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
       retries: 5
+      start_period: 60s
 
-  # API Gateway
+  # API Gateway - Point d'entrée unique
   api-gateway:
     build:
-      context: ./backend/api-gateway
+      context: ./api-gateway
       dockerfile: Dockerfile
     container_name: api-gateway
+    restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+      JAVA_OPTS: -Xms512m -Xmx1024m
+      # URL Eureka
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      # Configuration Config Server
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
     depends_on:
       config-server:
         condition: service_healthy
@@ -136,26 +158,45 @@ services:
     networks:
       - event-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
-      interval: 15s
-      timeout: 5s
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
       retries: 5
+      start_period: 60s
 
   # ========== MICROSERVICES MÉTIER ==========
 
-  # Event Service
+  # Event Service - Gestion des événements
   event-service:
     build:
-      context: ./backend/event-service
+      context: ./event-service
       dockerfile: Dockerfile
     container_name: event-service
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+      JAVA_OPTS: -Xms512m -Xmx1024m
+
+      # Eureka
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-event:3306/event_db
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+
+      # Base de données MySQL
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-event:3306/event_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: event_user
       SPRING_DATASOURCE_PASSWORD: event_pass
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
+
+      # JPA / Hibernate
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQL8Dialect
+      SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL: "true"
+
+      # Config Server
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
     depends_on:
       mysql-event:
         condition: service_healthy
@@ -163,22 +204,47 @@ services:
         condition: service_healthy
     networks:
       - event-network
-    deploy:
-      replicas: 2  # 2 instances pour load balancing
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
 
-  # Booking Service
+  # Booking Service - Gestion des réservations
   booking-service:
     build:
-      context: ./backend/booking-service
+      context: ./booking-service
       dockerfile: Dockerfile
     container_name: booking-service
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+      JAVA_OPTS: -Xms512m -Xmx1024m
+
+      # Eureka
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-booking:3306/booking_db
+      EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
+
+      # Base de données MySQL
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-booking:3306/booking_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: booking_user
       SPRING_DATASOURCE_PASSWORD: booking_pass
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
+
+      # JPA / Hibernate
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_SHOW_SQL: "true"
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: org.hibernate.dialect.MySQL8Dialect
+
+      # Config Server
+      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+
+      # Feign Client Configuration
+      FEIGN_CLIENT_CONFIG_DEFAULT_CONNECTTIMEOUT: 5000
+      FEIGN_CLIENT_CONFIG_DEFAULT_READTIMEOUT: 5000
     depends_on:
       mysql-booking:
         condition: service_healthy
@@ -188,38 +254,30 @@ services:
         condition: service_started
     networks:
       - event-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
 
-  # User Service
-  user-service:
-    build:
-      context: ./backend/user-service
-      dockerfile: Dockerfile
-    container_name: user-service
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-user:5432/user_db
-      SPRING_DATASOURCE_USERNAME: user_user
-      SPRING_DATASOURCE_PASSWORD: user_pass
-    depends_on:
-      postgres-user:
-        condition: service_healthy
-      eureka-server:
-        condition: service_healthy
-    networks:
-      - event-network
-
-# Définition des volumes persistants
+# ========== VOLUMES PERSISTANTS ==========
 volumes:
   mysql-event-data:
+    name: tkev-mysql-event-data
     driver: local
   mysql-booking-data:
+    name: tkev-mysql-booking-data
     driver: local
   postgres-user-data:
+    name: tkev-postgres-user-data
     driver: local
 
-# Réseau pour la communication inter-services
+# ========== RÉSEAU ==========
 networks:
   event-network:
+    name: tkev-network
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

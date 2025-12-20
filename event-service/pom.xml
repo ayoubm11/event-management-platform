@@ -14,7 +14,7 @@
     <groupId>com.event.platform</groupId>
     <artifactId>event-service</artifactId>
     <version>1.0.0</version>
-    <n>Event Service</n>
+    <name>Event Service</name>
     <description>Microservice de gestion des événements</description>
 
     <properties>

@@ -1,57 +1,34 @@
-# Dockerfile multi-stage pour microservices Spring Boot
-# Ce fichier crée une image Docker optimisée en deux étapes
+# Dockerfile pour le projet parent TKEV
+# Ce Dockerfile n'est utilisé que si vous voulez build tout le projet en une fois
+# Pour les microservices individuels, utilisez les Dockerfiles dans chaque service
 
-# ========== STAGE 1: BUILD ==========
-# Utilise Maven pour compiler l'application
+# ========== STAGE 1: BUILD ALL SERVICES ==========
 FROM maven:3.9-eclipse-temurin-17 AS build
 
 # Définit le répertoire de travail
 WORKDIR /app
 
-# Copie les fichiers de configuration Maven
-# (Copier d'abord les fichiers de config permet de cacher cette couche)
+# Copie le POM parent et tous les modules
 COPY pom.xml .
-COPY src ./src
+COPY config-server ./config-server
+COPY eureka-server ./eureka-server
+COPY api-gateway ./api-gateway
+COPY event-service ./event-service
+COPY booking-service ./booking-service
 
-# Compile l'application et crée le JAR
-# -DskipTests: ignore les tests pour accélérer le build
-# clean: nettoie les builds précédents
-# package: crée le JAR
+# Build tous les services
 RUN mvn clean package -DskipTests
 
-# ========== STAGE 2: RUNTIME ==========
-# Image légère pour exécuter l'application
+# Note: Ce Dockerfile build TOUS les services
+# En production, utilisez Docker Compose avec les Dockerfiles individuels
+# pour un meilleur contrôle et des builds plus rapides
+
+# ========== STAGE 2: RUNTIME (OPTIONNEL) ==========
+# Ce stage n'est pas utilisé car chaque service a son propre Dockerfile
+# Gardez ce fichier pour documentation ou build en une fois si nécessaire
+
 FROM eclipse-temurin:17-jre-alpine
-
-# Métadonnées de l'image
-LABEL maintainer="votre-email@example.com"
-LABEL description="Microservice Spring Boot pour la plateforme d'événements"
-
-# Crée un utilisateur non-root pour la sécurité
-# (Ne jamais exécuter une app en tant que root dans un container)
-RUN addgroup -S spring && adduser -S spring -G spring
-USER spring:spring
-
-# Définit le répertoire de travail
 WORKDIR /app
-
-# Copie le JAR depuis le stage de build
-# --from=build: récupère depuis le stage précédent
-COPY --from=build /app/target/*.jar app.jar
-
-# Expose le port de l'application
-# (Informatif uniquement, ne publie pas réellement le port)
-EXPOSE 8080
-
-# Définit les variables d'environnement JVM
-ENV JAVA_OPTS="-Xms256m -Xmx512m"
-
-# Point d'entrée de l'application
-# exec java: permet de recevoir les signaux (SIGTERM, etc.)
-# $JAVA_OPTS: options JVM configurables
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
-
-# Health check
-# Vérifie que l'application répond correctement
-HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
+RUN echo "Ce Dockerfile est pour le build complet du projet."
+RUN echo "Utilisez docker-compose pour lancer les services individuellement."
+CMD ["echo", "Utilisez docker-compose up pour démarrer tous les services"]
