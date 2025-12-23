@@ -186,27 +186,3 @@ public class Event {
         return false;
     }
 }
-
-/**
- * Énumération des catégories d'événements
- */
-enum EventCategory {
-    SPORT,
-    CULTURE,
-    CONFERENCE,
-    CONCERT,
-    THEATRE,
-    FESTIVAL,
-    EXPOSITION,
-    AUTRE
-}
-
-/**
- * Énumération des statuts d'événements
- */
-enum EventStatus {
-    DRAFT,      // Brouillon, non publié
-    PUBLISHED,  // Publié, visible et réservable
-    CANCELLED,  // Annulé
-    COMPLETED   // Terminé
-}

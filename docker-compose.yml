@@ -184,7 +184,8 @@ services:
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
 
       # Base de données MySQL
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-event:3306/event_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+      # Allow MySQL public key retrieval for connector (needed for some MySQL auth plugins)
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-event:3306/event_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: event_user
       SPRING_DATASOURCE_PASSWORD: event_pass
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
@@ -229,7 +230,8 @@ services:
       EUREKA_INSTANCE_PREFER_IP_ADDRESS: "true"
 
       # Base de données MySQL
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-booking:3306/booking_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+      # Allow MySQL public key retrieval for connector
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-booking:3306/booking_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: booking_user
       SPRING_DATASOURCE_PASSWORD: booking_pass
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver

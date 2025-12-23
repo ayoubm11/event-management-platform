@@ -17,8 +17,7 @@ COPY event-service ./event-service
 COPY booking-service ./booking-service
 
 # Build tous les services
-RUN mvn clean package -DskipTests
-
+RUN mvn clean package -DskipTests -Dmaven.test.skip=true
 # Note: Ce Dockerfile build TOUS les services
 # En production, utilisez Docker Compose avec les Dockerfiles individuels
 # pour un meilleur contrôle et des builds plus rapides

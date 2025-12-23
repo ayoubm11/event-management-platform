@@ -3,8 +3,7 @@ WORKDIR /app
 COPY pom.xml .
 COPY src ./src
 RUN apk add --no-cache maven
-RUN mvn clean package -DskipTests
-
+RUN mvn clean package -DskipTests -Dmaven.test.skip=true
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
