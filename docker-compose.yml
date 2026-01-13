@@ -266,20 +266,17 @@ services:
 # ========== VOLUMES PERSISTANTS ==========
 volumes:
   mysql-event-data:
+    external: true
     name: tkev-mysql-event-data
-    driver: local
   mysql-booking-data:
+    external: true
     name: tkev-mysql-booking-data
-    driver: local
   postgres-user-data:
+    external: true
     name: tkev-postgres-user-data
-    driver: local
 
 # ========== RÉSEAU ==========
 networks:
   event-network:
+    external: true
     name: tkev-network
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.28.0.0/16
