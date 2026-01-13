@@ -60,8 +60,7 @@ Diagramme ASCII :
 - Lombok, MapStruct (aide au développement)
 - Docker / Docker Compose
 
-## Technologies et versions (extraites des POMs)
-
+## Technologies et versions
 - Java: 17
 - Spring Boot: 3.2.0 (majorité des modules), note: `booking-service` indique `4.0.1` — vérifier cohérence
 - Spring Cloud: 2023.0.0
@@ -129,12 +128,6 @@ Chaque module contient des tests unitaires (dossier `src/test`). Exécuter depui
 ./mvnw clean test -T 1C
 ```
 
-## CI / CD (suggestions)
-
-- Ajouter une pipeline (GitHub Actions / GitLab CI) qui :
-  - Compile les modules (`mvn -T 1C clean package`)
-  - Exécute les tests
-  - Génère des images Docker et les pousse vers un registry
 
 ## Diagrammes et assets
 
@@ -174,11 +167,3 @@ Vous pouvez générer une image PNG via PlantUML ou utiliser `plantuml` en local
 1. Fork du projet
 2. Créer une branche feature/bugfix
 3. Ouvrir une Pull Request décrivant les changements
-
-## Licence
-
-Indiquer la licence du projet (ex: MIT, Apache-2.0) dans le fichier `LICENSE`.
-
----
-
-Fichier généré automatiquement par assistant — vérifier et ajuster les sections `Technologies et versions` selon vos besoins et la cohérence des POMs avant déploiement en production.
