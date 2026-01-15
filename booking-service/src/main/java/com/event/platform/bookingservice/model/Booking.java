@@ -175,12 +175,4 @@ public class Booking {
     }
 }
 
-/**
- * Énumération des statuts de réservation
- */
-enum BookingStatus {
-    PENDING,    // En attente de confirmation
-    CONFIRMED,  // Confirmée et payée
-    CANCELLED,  // Annulée
-    REFUNDED    // Remboursée
-}
+// BookingStatus moved to its own file BookingStatus.java

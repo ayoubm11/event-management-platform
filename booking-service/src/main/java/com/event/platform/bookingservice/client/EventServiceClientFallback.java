@@ -1,7 +1,8 @@
 package com.event.platform.bookingservice.client;
 
 import com.event.platform.bookingservice.dto.EventDTO;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
@@ -24,8 +25,9 @@ import org.springframework.stereotype.Component;
  * - Logger l'incident pour investigation
  */
 @Component
-@Slf4j
 public class EventServiceClientFallback implements EventServiceClient {
+
+    private static final Logger log = LoggerFactory.getLogger(EventServiceClientFallback.class);
 
     /**
      * Fallback pour getEventById
